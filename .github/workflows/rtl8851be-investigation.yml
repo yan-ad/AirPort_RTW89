@@ -1,0 +1,80 @@
+
+name: RTL8851BE Investigation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - fix/rtl8851be-init
+    paths:
+      - "src/compat_rtw89/**"
+      - "third_party/rtw89/**"
+      - ".github/workflows/rtl8851be-investigation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  investigate:
+    runs-on: macos-15-intel
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Environment
+        run: |
+          uname -a
+          clang --version
+          xcrun --show-sdk-version
+          git log -1 --oneline
+
+      - name: RTL8851B source inventory
+        run: |
+          find third_party/rtw89 -iname '*8851*' -print
+          grep -RniE 'xtal|power_on|swsi|lte|firmware' \
+            third_party/rtw89/rtw8851b* \
+            third_party/rtw89/rtw8851be.c
+
+      - name: Compatibility layer inventory
+        run: |
+          grep -RniE 'power|firmware|probe|timeout|mlme|association' \
+            src/compat_rtw89
+
+      - name: Firmware preparation
+        run: make fetch-firmware
+
+      - name: Host tests
+        id: tests
+        continue-on-error: true
+        run: make test
+
+      - name: Hosttest
+        id: hosttest
+        continue-on-error: true
+        run: make hosttest
+
+      - name: Build kext
+        if: steps.tests.outcome == 'success' && steps.hosttest.outcome == 'success'
+        run: make bundle
+
+      - name: Collect diagnostics
+        if: always()
+        run: |
+          echo "=== Test results ==="
+          echo "Tests: ${{ steps.tests.outcome }}"
+          echo "Hosttest: ${{ steps.hosttest.outcome }}"
+          echo "=== Logs ==="
+          find build/log -type f -maxdepth 2 -print || true
+
+      - name: Upload investigation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtl8851be-investigation
+          path: |
+            build/log/
+            build/out/bundle/
+          if-no-files-found: warn
