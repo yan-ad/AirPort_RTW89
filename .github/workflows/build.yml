@@ -1,0 +1,25 @@
+
+name: Build AirPort_RTW89
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15-intel
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build firmware
+        run: make fetch-firmware
+
+      - name: Build and test
+        run: make bundle
+
+      - name: Upload kext
+        uses: actions/upload-artifact@v4
+        with:
+          name: AirPort_RTW89-kext
+          path: build/out/bundle/AirPort_RTW89.kext/
