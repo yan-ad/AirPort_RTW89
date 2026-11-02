@@ -18,6 +18,14 @@ jobs:
       - name: Build and test
         run: make bundle
 
+      - name: Upload hosttest logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtw89-hosttest-logs
+          path: build/log/
+          if-no-files-found: warn
+
       - name: Upload kext
         uses: actions/upload-artifact@v4
         with:
